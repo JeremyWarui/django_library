@@ -13,6 +13,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='book',
             name='summary',
-            field=models.TextField(default='No summary available', help_text='Enter a brief description of the book', max_length=1000),
+            field=models.TextField(default='No summary available',
+                                   help_text='Enter a brief description of the book', max_length=1000),
         ),
     ]
