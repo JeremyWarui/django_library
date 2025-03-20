@@ -1,3 +1,11 @@
+from django.urls import reverse_lazy
+from django.views.generic.edit import CreateView, UpdateView, DeleteView
+from django.shortcuts import get_object_or_404
+from catalog.forms import RenewBookForm
+from django.urls import reverse
+from django.http import HttpResponseRedirect
+import datetime
+from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.views import generic
 from django.shortcuts import render
@@ -71,6 +79,7 @@ class LoanedBooksByUserListView(LoginRequiredMixin, generic.ListView):
             .order_by('due_back')
         )
 
+
 class AllLoanedBooksListView(PermissionRequiredMixin, generic.ListView):
     """Generic class based view listing all books borrowed"""
     model = BookInstance
@@ -82,3 +91,95 @@ class AllLoanedBooksListView(PermissionRequiredMixin, generic.ListView):
             BookInstance.objects.filter(status__exact='o')
             .order_by('due_back')
         )
+
+
+@login_required
+@permission_required('catalog.can_mark_returned', raise_exception=True)
+def renew_book_librarian(request, pk):
+    """view function for renewing a specific book instance by librarian"""
+    book_instance = get_object_or_404(BookInstance, pk=pk)
+    # if this is POST request then process the form
+    if request.method == 'POST':
+        # create form instance and populate with data
+        # from the request (binding)
+        form = RenewBookForm(request.POST)
+
+        # check if formis valid
+        if form.is_valid():
+            # process the data using form.cleaned_data as required
+            book_instance.due_back = form.cleaned_data['renewal_date']
+            book_instance.save()
+            # redirect to new URL
+            return HttpResponseRedirect(reverse('all-borrowed'))
+    else:
+        proposed_renewal_date = datetime.date.today() + datetime.timedelta(weeks=3)
+        form = RenewBookForm(initial={'renewal_date': proposed_renewal_date})
+    context = {
+        'form': form,
+        'book_instance': book_instance
+    }
+
+    return render(request, 'catalog/book_renew_librarian.html', context)
+
+
+class AuthorCreate(PermissionRequiredMixin, CreateView):
+    """to create a new author form or view"""
+    model = Author
+    fields = ['first_name', 'last_name', 'date_of_birth', 'date_of_death']
+    initial = {'date_of_death': '11/11/2023'}
+    permission_required = 'catalog.add_author'
+
+
+class AuthorUpdate(PermissionRequiredMixin, UpdateView):
+    """view to update author"""
+    model = Author
+    # not recommended
+    fields = '__all__'
+    permission_required = 'catalog.change_author'
+
+
+class AuthorDelete(PermissionRequiredMixin, DeleteView):
+    """delete view of author"""
+    model = Author
+    success_url = reverse_lazy('authors')
+    permission_required = 'catalog.delete_author'
+
+    def form_valid(self, form):
+        try:
+            self.object.delete()
+            return HttpResponseRedirect(self.success_url)
+        except Exception as e:
+            return HttpResponseRedirect(
+                reverse("author_delete", kwargs={"pk": self.object.pk})
+            )
+
+
+class BookCreate(PermissionRequiredMixin, CreateView):
+    """create new book"""
+    model = Book
+    fields = ['title', 'author', 'summary', 'isbn', 'genre', 'language']
+    permission_required = 'catalog.add_book'
+
+
+class BookUpdate(PermissionRequiredMixin, UpdateView):
+    """view to update book"""
+    model = Book
+    # not recommended
+    fields = ['title', 'author', 'summary', 'isbn', 'genre', 'language']
+    permission_required = 'catalog.change_book'
+
+
+class BookDelete(PermissionRequiredMixin, DeleteView):
+    """delete view of book"""
+    model = Book
+    success_url = reverse_lazy('books')
+    permission_required = 'catalog.delete_book'
+
+    def form_valid(self, form):
+        try:
+            self.object.delete()
+            return HttpResponseRedirect(self.success_url)
+        except Exception as e:
+            return HttpResponseRedirect(
+                reverse("book_delete", kwargs={"pk": self.object.pk})
+            )
