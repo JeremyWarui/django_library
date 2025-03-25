@@ -108,13 +108,13 @@ def renew_book_librarian(request, pk):
         # check if formis valid
         if form.is_valid():
             # process the data using form.cleaned_data as required
-            book_instance.due_back = form.cleaned_data['renewal_date']
+            book_instance.due_back = form.cleaned_data['due_back']
             book_instance.save()
             # redirect to new URL
             return HttpResponseRedirect(reverse('all-borrowed'))
     else:
         proposed_renewal_date = datetime.date.today() + datetime.timedelta(weeks=3)
-        form = RenewBookForm(initial={'renewal_date': proposed_renewal_date})
+        form = RenewBookForm(initial={'due_back': proposed_renewal_date})
     context = {
         'form': form,
         'book_instance': book_instance
